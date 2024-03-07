@@ -123,16 +123,16 @@ class TouchTimeDialog(tk.Toplevel):
 		self.result = f"{hour}:{minute} {self.am_pm.get()}"
 		self.destroy()
 		
-    def update_highlight(self):
-        default_bg_color = "lightgray"  # or any color that fits your theme
-        highlight_color = "yellow"
-        
-        if self.input_mode == "hour":
-            self.hour_label.config(bg=highlight_color)
-            self.minute_label.config(bg=default_bg_color)
-        else:
-            self.hour_label.config(bg=default_bg_color)
-            self.minute_label.config(bg=highlight_color)
+	def update_highlight(self):
+		default_bg_color = "lightgray"  # or any color that fits your theme
+		highlight_color = "yellow"
+		
+		if self.input_mode == "hour":
+			self.hour_label.config(bg=highlight_color)
+			self.minute_label.config(bg=default_bg_color)
+		else:
+			self.hour_label.config(bg=default_bg_color)
+			self.minute_label.config(bg=highlight_color)
 
 		
 def get_ntp_time():
