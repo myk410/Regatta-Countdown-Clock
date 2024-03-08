@@ -1,1 +1,1 @@
-/etc/systemd/system/countdownemd.service
+/etc/systemd/system/countdown_app.service
