@@ -24,13 +24,14 @@ time.sleep(15)
 class TouchTimeDialog(tk.Toplevel):
 	def __init__(self, parent):
 		super().__init__(parent)
-		self.title("Set Race Start Time")
+		self.geometry("800x480+0+0")
+		self.title("Set Start Time")
 		
 		self.hour_str = tk.StringVar(self, "12")
 		self.minute_str = tk.StringVar(self, "00")
 		self.am_pm = tk.StringVar(self, "AM")
 		
-		self.input_mode = "hour"  # Can be 'hour' or 'minute'
+		self.input_mode = "hour"  # Start with 'hour' as the default input mode
 		
 		self.setup_ui()
 		
@@ -44,21 +45,29 @@ class TouchTimeDialog(tk.Toplevel):
 		self.time_display = tk.Frame(self)
 		self.time_display.pack(side=tk.TOP, pady=5)
 		
+		buttons = tk.Frame(self)
+		buttons.pack(side=tk.TOP, pady=5)
+		
 		num_buttons = tk.Frame(self)
 		num_buttons.pack(side=tk.TOP, pady=5)
 		
 		control_buttons = tk.Frame(self)
 		control_buttons.pack(side=tk.TOP, pady=5)
 		
-		self.hour_label = tk.Label(self.time_display, textvariable=self.hour_str, font=("Avenir", display_size), bg="lightgrey")  # Initial highlight
+		# Label for hour input
+		self.hour_label = tk.Label(self.time_display, textvariable=self.hour_str, font=("Avenir", display_size), bg="lightgrey")
 		self.hour_label.grid(row=0, column=0)
+		self.hour_label.bind("<Button-1>", lambda e: self.set_input_mode("hour"))  # Bind click event
 		
 		colon_label = tk.Label(self.time_display, text=":", font=("Avenir", display_size))
 		colon_label.grid(row=0, column=1)
 		
+		# Label for minute input
 		self.minute_label = tk.Label(self.time_display, textvariable=self.minute_str, font=("Avenir", display_size))
 		self.minute_label.grid(row=0, column=2)
+		self.minute_label.bind("<Button-1>", lambda e: self.set_input_mode("minute"))  # Bind click event
 		
+		# AM/PM toggle button
 		am_pm_label = tk.Button(self.time_display, textvariable=self.am_pm, command=self.toggle_am_pm, font=("Avenir", display_size))
 		am_pm_label.grid(row=0, column=3)
 		
@@ -71,19 +80,22 @@ class TouchTimeDialog(tk.Toplevel):
 		btn_zero.grid(row=3, column=1, pady=2, padx=2)
 		
 		# Control buttons
-		btn_hour = tk.Button(control_buttons, text="Hour", command=lambda: self.set_input_mode("hour"), font=("Avenir", button_size))
-		btn_hour.grid(row=0, column=0, padx=2)
+		btn_cancel = tk.Button(control_buttons, text="Cancel", command=self.on_cancel, font=("Avenir", button_size))
+		btn_cancel.grid(row=0, column=0, padx=2)  # Adjust grid positioning as necessary
 		
-		btn_minute = tk.Button(control_buttons, text="Minute", command=lambda: self.set_input_mode("minute"), font=("Avenir", button_size))
-		btn_minute.grid(row=0, column=1, padx=2)
-		
+		# Adjust grid positioning for Clear button to make room for Cancel
 		btn_clear = tk.Button(control_buttons, text="Clear", command=self.clear_input, font=("Avenir", button_size))
-		btn_clear.grid(row=0, column=2, padx=2)
+		btn_clear.grid(row=0, column=1, padx=2)
 		
-		set_button = tk.Button(self, text="Set", command=self.on_set, font=("Avenir", button_size))
-		set_button.pack(side=tk.BOTTOM, pady=10)
+		# Adjust grid positioning for Set button
+		set_button = tk.Button(control_buttons, text="Set", command=self.on_set, font=("Avenir", button_size))
+		set_button.grid(row=0, column=2, padx=2)
 		
 		self.update_highlight()
+		
+	def on_cancel(self):
+		# Close the dialog without setting a result
+		self.destroy()
 		
 	def toggle_am_pm(self):
 		self.am_pm.set("PM" if self.am_pm.get() == "AM" else "AM")
@@ -309,7 +321,7 @@ ip_address = get_ip_address()
 instruct_label = tk.Label(info_frame, text="Use 'VNC Viewer' to Screen Share", font=("Avenir", 14))
 ip_label = tk.Label(info_frame, text=f"IP Address: {ip_address}", font=("Avenir", 16))
 instruct_label.pack()
-ip_label.pack(pady=20)
+ip_label.pack()
 
 start_time_label = tk.Label(info_frame, text="Start Time: Not set", font=("Avenir", 16))
 start_time_label.pack(pady=10)
@@ -317,25 +329,28 @@ start_time_label.pack(pady=10)
 timer_frame = tk.Frame(root, bg=green)
 timer_frame.pack(pady=10)
 
-countdown_label = tk.Label(timer_frame, bg=green, text="00:00", font=("Avenir", 48))
+countdown_label = tk.Label(timer_frame, bg=green, text="00:00", font=("Avenir", 60))
 countdown_label.pack(pady=10, padx=20)
 
 buttons_frame = tk.Frame(root)
 buttons_frame.pack(pady=10)
 
-set_time_button = tk.Button(buttons_frame, text="Set Race Time", command=set_race_time, font=("Avenir", 16))
+button_font_size = 40
+ctr_butt_pady = 20
+
+set_time_button = tk.Button(buttons_frame, text="Set Start Time", command=set_race_time, font=("Avenir", button_font_size))
 set_time_button.grid(row=0,column=0, padx=5, columnspan=4)
 
-back_five_minutes_button = tk.Button(buttons_frame, text="◀◀ 5 Minutes", command=lambda: adjust_race_time(-5), font=("Avenir", 16))
-back_five_minutes_button.grid(row=1,column=0, padx=5)
+back_five_minutes_button = tk.Button(buttons_frame, text="◀◀ 5", command=lambda: adjust_race_time(-5), font=("Avenir", button_font_size))
+back_five_minutes_button.grid(row=1,column=0, padx=5, pady=ctr_butt_pady)
 
-back_minute_button = tk.Button(buttons_frame, text="◀ 1 Minute", command=lambda: adjust_race_time(-1), font=("Avenir", 16))
-back_minute_button.grid(row=1,column=1, padx=5)
+back_minute_button = tk.Button(buttons_frame, text="◀ 1", command=lambda: adjust_race_time(-1), font=("Avenir", button_font_size))
+back_minute_button.grid(row=1,column=1, padx=5, pady=ctr_butt_pady)
 
-next_minute_button = tk.Button(buttons_frame, text="1 Minute ▶", command=lambda: adjust_race_time(1), font=("Avenir", 16))
-next_minute_button.grid(row=1,column=2, padx=5)
+next_minute_button = tk.Button(buttons_frame, text="1 ▶", command=lambda: adjust_race_time(1), font=("Avenir", button_font_size))
+next_minute_button.grid(row=1,column=2, padx=5, pady=ctr_butt_pady)
 
-next_five_minutes_button = tk.Button(buttons_frame, text="5 Minutes ▶▶", command=lambda: adjust_race_time(5), font=("Avenir", 16))
-next_five_minutes_button.grid(row=1,column=3, padx=5)
+next_five_minutes_button = tk.Button(buttons_frame, text="5 ▶▶", command=lambda: adjust_race_time(5), font=("Avenir", button_font_size))
+next_five_minutes_button.grid(row=1,column=3, padx=5, pady=ctr_butt_pady)
 
 root.mainloop()
