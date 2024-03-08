@@ -6,6 +6,7 @@ from tkinter import Toplevel, Label, Button
 from threading import Thread, Event
 import re
 import socket
+import ntplib
 from datetime import datetime, timedelta
 import time
 import threading
@@ -24,8 +25,13 @@ time.sleep(15)
 class TouchTimeDialog(tk.Toplevel):
 	def __init__(self, parent):
 		super().__init__(parent)
+		self.attributes('-fullscreen', True)
 		self.geometry("800x480+0+0")
 		self.title("Set Start Time")
+		
+		# Make the popup related to the root window, helps with window stacking
+		self.transient(parent)
+		self.grab_set()
 		
 		self.hour_str = tk.StringVar(self, "12")
 		self.minute_str = tk.StringVar(self, "00")
@@ -41,18 +47,21 @@ class TouchTimeDialog(tk.Toplevel):
 	def setup_ui(self):
 		display_size = 40
 		button_size = 40
+		ctr_butt_width = 6
+		num_butt_width = 2
+		num_butt_height = 1
 		
 		self.time_display = tk.Frame(self)
-		self.time_display.pack(side=tk.TOP, pady=5)
+		self.time_display.pack(side=tk.TOP, pady=2)
 		
 		buttons = tk.Frame(self)
 		buttons.pack(side=tk.TOP, pady=5)
 		
-		num_buttons = tk.Frame(self)
-		num_buttons.pack(side=tk.TOP, pady=5)
+		num_buttons = tk.Frame(buttons)
+		num_buttons.pack(side=tk.LEFT, pady=5)
 		
-		control_buttons = tk.Frame(self)
-		control_buttons.pack(side=tk.TOP, pady=5)
+		control_buttons = tk.Frame(buttons)
+		control_buttons.pack(side=tk.LEFT, pady=5, padx=40)
 		
 		# Label for hour input
 		self.hour_label = tk.Label(self.time_display, textvariable=self.hour_str, font=("Avenir", display_size), bg="lightgrey")
@@ -73,25 +82,24 @@ class TouchTimeDialog(tk.Toplevel):
 		
 		# Numeric buttons
 		for i in range(1, 10):
-			btn = tk.Button(num_buttons, text=str(i), command=lambda n=i: self.append_digit(n), font=("Avenir", button_size))
+			btn = tk.Button(num_buttons, text=str(i), command=lambda n=i: self.append_digit(n), font=("Avenir", button_size), width=num_butt_width, height=num_butt_height)
 			btn.grid(row=(i-1)//3, column=(i-1)%3, pady=2, padx=2)
 			
-		btn_zero = tk.Button(num_buttons, text="0", command=lambda: self.append_digit(0), font=("Avenir", button_size))
+		btn_zero = tk.Button(num_buttons, text="0", command=lambda: self.append_digit(0), font=("Avenir", button_size), width=num_butt_width, height=num_butt_height)
 		btn_zero.grid(row=3, column=1, pady=2, padx=2)
 		
 		# Control buttons
-		btn_cancel = tk.Button(control_buttons, text="Cancel", command=self.on_cancel, font=("Avenir", button_size))
-		btn_cancel.grid(row=0, column=0, padx=2)  # Adjust grid positioning as necessary
+		btn_cancel = tk.Button(control_buttons, text="Cancel", command=self.on_cancel, font=("Avenir", button_size), width=ctr_butt_width)
+		btn_cancel.grid(row=2, column=0, padx=2)
 		
-		# Adjust grid positioning for Clear button to make room for Cancel
-		btn_clear = tk.Button(control_buttons, text="Clear", command=self.clear_input, font=("Avenir", button_size))
-		btn_clear.grid(row=0, column=1, padx=2)
+		btn_clear = tk.Button(control_buttons, text="Clear", command=self.clear_input, font=("Avenir", button_size), width=ctr_butt_width)
+		btn_clear.grid(row=1, column=0, padx=2)
 		
-		# Adjust grid positioning for Set button
-		set_button = tk.Button(control_buttons, text="Set", command=self.on_set, font=("Avenir", button_size))
-		set_button.grid(row=0, column=2, padx=2)
+		set_button = tk.Button(control_buttons, text="Set", command=self.on_set, font=("Avenir", button_size), width=ctr_butt_width)
+		set_button.grid(row=0, column=0, padx=2)
 		
 		self.update_highlight()
+		self.focus_set()
 		
 	def on_cancel(self):
 		# Close the dialog without setting a result
@@ -311,25 +319,33 @@ def parse_time_input(time_input):
 
 # GUI Setup
 root = tk.Tk()
+root.attributes('-fullscreen', True)
 root.title("Countdown Clock")
 root.geometry("800x480")
+
+# To toggle full-screen off (e.g., by pressing a key)
+def toggle_fullscreen(event=None):
+    root.attributes('-fullscreen', False)
+
+# Bind the toggle function to a key, for example, F11
+root.bind('<F11>', toggle_fullscreen)
 
 info_frame = tk.Frame(root)
 info_frame.pack(pady=10)
 
 ip_address = get_ip_address()
 instruct_label = tk.Label(info_frame, text="Use 'VNC Viewer' to Screen Share", font=("Avenir", 14))
-ip_label = tk.Label(info_frame, text=f"IP Address: {ip_address}", font=("Avenir", 16))
+ip_label = tk.Label(info_frame, text=f"IP Address: {ip_address}", font=("Avenir", 14))
 instruct_label.pack()
 ip_label.pack()
 
-start_time_label = tk.Label(info_frame, text="Start Time: Not set", font=("Avenir", 16))
-start_time_label.pack(pady=10)
+start_time_label = tk.Label(info_frame, text="Start Time: Not set", font=("Avenir", 14))
+start_time_label.pack(pady=2)
 
 timer_frame = tk.Frame(root, bg=green)
 timer_frame.pack(pady=10)
 
-countdown_label = tk.Label(timer_frame, bg=green, text="00:00", font=("Avenir", 60))
+countdown_label = tk.Label(timer_frame, bg=green, text="00:00", font=("Avenir", 50))
 countdown_label.pack(pady=10, padx=20)
 
 buttons_frame = tk.Frame(root)
