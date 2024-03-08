@@ -1,0 +1,7 @@
+sudo apt-get install python3 python3-venv
+
+python3 -m venv countdown-env
+
+source countdown-env/bin/activate
+
+pip install ntplib
