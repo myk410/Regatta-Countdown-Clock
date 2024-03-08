@@ -1,1 +1,26 @@
-/etc/systemd/system/countdown_app.service
+chmod +x /home/myk410/countdown_app.py
+
+sudo nano /etc/systemd/system/countdown_app.service
+
+==========
+
+[Unit]
+Description=Start countdown_app.py
+After=graphical.target
+
+[Service]
+Environment="DISPLAY=:0"
+Environment="XAUTHORITY=/home/myk410/.Xauthority"
+ExecStart=/home/myk410/countdown-env/bin/python3 /home/myk410/countdown_app.py
+User=myk410
+Group=myk410
+
+[Install]
+WantedBy=graphical.target
+
+==========
+
+sudo systemctl enable countdown_app.service
+sudo systemctl start countdown_app.service
+
+sudo systemctl status countdown_app.service
