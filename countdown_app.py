@@ -252,7 +252,10 @@ def update_countdown():
         remaining = (end_time - now).total_seconds()
         countdown_time[0] = remaining
         mins, secs = divmod(int(remaining), 60)
-        countdown_label.config(text=f"{mins:02d}:{secs:02d}")
+        if mins < 10:
+            countdown_label.config(text=f"{mins}:{secs:02d}")  # Removes leading zero for minutes less than 10
+        else:
+            countdown_label.config(text=f"{mins:02d}:{secs:02d}")
         time.sleep(1)
     if not countdown_stop_event.is_set():
         countdown_label.config(text="00:00")
