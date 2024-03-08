@@ -6,7 +6,6 @@ from tkinter import Toplevel, Label, Button
 from threading import Thread, Event
 import re
 import socket
-import ntplib
 from datetime import datetime, timedelta
 import time
 import threading
@@ -19,6 +18,8 @@ countdown_stop_event = Event()
 countdown_thread = None
 start_time_label = None
 last_button_press_time = 0
+
+time.sleep(15)
 
 class TouchTimeDialog(tk.Toplevel):
 	def __init__(self, parent):
