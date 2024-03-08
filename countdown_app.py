@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+#!/home/myk410/countdownenv/bin/python3
 
 import tkinter as tk
 from tkinter import simpledialog, messagebox
@@ -259,7 +259,7 @@ def update_countdown():
         time.sleep(1)
     if not countdown_stop_event.is_set():
         countdown_label.config(text="00:00")
-            
+        
 def adjust_race_time(minutes):
     global original_start_time, countdown_time, start_time_label, last_button_press_time
     
