@@ -10,6 +10,7 @@ import ntplib
 from datetime import datetime, timedelta
 import time
 import threading
+import RPi.GPIO as GPIO
 
 # Initialize global variables
 green = "#00FF00"
@@ -19,12 +20,121 @@ countdown_stop_event = Event()
 countdown_thread = None
 start_time_label = None
 last_button_press_time = 0
+keypad_context = "main"
+dialog = None
+custom_message_box = None
 
-time.sleep(15)
+#time.sleep(15)
+
+class CustomMessageBox(tk.Toplevel):
+    def __init__(self, parent, message):
+        super().__init__(parent)
+        self.title("Message")
+        self.geometry("400x200")  # Adjust size as needed
+        self.message_label = tk.Label(self, text=message, wraplength=350)
+        self.message_label.pack(pady=20)
+        self.ok_button = tk.Button(self, text="OK", command=self.destroy)
+        self.ok_button.pack(pady=10)
+        self.protocol("WM_DELETE_WINDOW", self.destroy)  # Handle window close button
+        self.transient(parent)  # Show above the parent window
+        self.grab_set()  # Block input to other windows until this one is closed
+
+    # Method to programmatically close the message box
+    def close(self):
+        global custom_message_box
+        custom_message_box = None  # Reset the global reference
+        self.destroy()
+
+# Setup GPIO for keypad
+GPIO.setmode(GPIO.BCM)
+GPIO.setwarnings(False)
+keypad = [
+    ["1", "2", "3", "A"],
+    ["4", "5", "6", "B"],
+    ["7", "8", "9", "C"],
+    ["*", "0", "#", "D"]
+]
+ROWS = [5, 6, 13, 19]
+COLUMNS = [26, 16, 20, 21]
+
+for row in ROWS:
+    GPIO.setup(row, GPIO.OUT, initial=GPIO.LOW)
+
+for col in COLUMNS:
+    GPIO.setup(col, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+    
+def read_keypad():
+    for row_index, row_pin in enumerate(ROWS):
+        GPIO.output(row_pin, GPIO.HIGH)
+        
+        for column_index, column_pin in enumerate(COLUMNS):
+            if GPIO.input(column_pin) == GPIO.HIGH:
+                GPIO.output(row_pin, GPIO.LOW)  # Reset the current row before returning
+                return keypad[row_index][column_index]
+        
+        GPIO.output(row_pin, GPIO.LOW)  # Reset the row before moving to the next one
+    
+    return None  # No key press detected
+
+def keypad_handler():
+    global last_button_press_time, custom_message_box, keypad_context
+    while True:
+        key = read_keypad()
+        if key and time.time() - last_button_press_time > 0.3:  # Debounce
+            last_button_press_time = time.time()
+
+            # If a custom message box is displayed, any key press should close it
+            if custom_message_box is not None:
+                custom_message_box.close()
+                custom_message_box = None
+                continue  # Skip further processing to avoid unwanted actions
+
+            # Process keypress based on the current context
+            if keypad_context == "main":
+                process_main_window_key(key)
+            elif keypad_context == "dialog":
+                process_dialog_key(key)
+                
+        time.sleep(0.1)
+
+def process_main_window_key(key):
+    if key == "*":
+        root.after(0, lambda: set_time_button.invoke())
+    elif key == "A":
+        root.after(0, lambda: back_five_minutes_button.invoke())
+    elif key == "B":
+        root.after(0, lambda: back_minute_button.invoke())
+    elif key == "C":
+        root.after(0, lambda: next_minute_button.invoke())
+    elif key == "D":
+        root.after(0, lambda: next_five_minutes_button.invoke())
+
+def process_dialog_key(key):
+    global dialog
+    if dialog is not None:
+        if key == "*":
+            root.after(0, lambda: dialog.set_input_mode("hour"))
+        elif key == "#":
+            root.after(0, lambda: dialog.set_input_mode("minute"))
+        elif key == "A":
+            root.after(0, dialog.on_set)
+        elif key == "B":
+            root.after(0, dialog.clear_input)
+        elif key == "C":
+            root.after(0, dialog.on_cancel)
+        elif key == "D":
+            root.after(0, dialog.toggle_am_pm)
+        elif key.isdigit():
+            root.after(0, lambda: dialog.append_digit(int(key)))
+
+# Initialize threading for keypad handling
+threading.Thread(target=keypad_handler, daemon=True).start()
 
 class TouchTimeDialog(tk.Toplevel):
     def __init__(self, parent):
         super().__init__(parent)
+        global keypad_context
+        keypad_context = "dialog"
         self.attributes('-fullscreen', True)
         self.geometry("800x480+0+0")
         self.title("Set Start Time")
@@ -49,6 +159,9 @@ class TouchTimeDialog(tk.Toplevel):
         # To keep track of the dialog result
         self.result = None
         
+        # Override the destroy method
+        self.protocol("WM_DELETE_WINDOW", self.custom_destroy)  # Handle window close button
+
     def setup_ui(self):
         display_size = 40
         button_size = 40
@@ -105,9 +218,15 @@ class TouchTimeDialog(tk.Toplevel):
         
         self.update_highlight()
         self.focus_set()
+    
+    def custom_destroy(self):
+        global keypad_context
+        keypad_context = "main"  # Reset context to main when dialog is closed
+        self.destroy()
         
     def on_cancel(self):
-        # Close the dialog without setting a result
+        global keypad_context
+        keypad_context = "main"  # Reset context to main when cancel is clicked
         self.destroy()
         
     def toggle_am_pm(self):
@@ -144,9 +263,11 @@ class TouchTimeDialog(tk.Toplevel):
             self.minute_str.set(f"{new_value_int:02}")
                 
     def on_set(self):
+        global keypad_context
         hour = self.hour_str.get().zfill(2)
         minute = self.minute_str.get().zfill(2)
         self.result = f"{hour}:{minute} {self.am_pm.get()}"
+        keypad_context = "main"  # Reset context to main when time is set
         self.destroy()
     
     def update_highlight(self):
@@ -161,13 +282,16 @@ class TouchTimeDialog(tk.Toplevel):
             self.minute_label.config(bg=highlight_color)
 
 def get_ntp_time():
+    global custom_message_box
     client = ntplib.NTPClient()
     try:
         response = client.request('pool.ntp.org')
         ntp_time = datetime.fromtimestamp(response.tx_time)
         return ntp_time.replace(tzinfo=None)  # Remove timezone information for comparison
     except Exception as e:
-        messagebox.showerror("Error", f"Failed to get NTP time: {e}")
+        if custom_message_box is not None:
+            custom_message_box.close()
+        custom_message_box = CustomMessageBox(root, f"Failed to get NTP time: {e}")
         return None
     
 def get_ip_address():
@@ -204,11 +328,16 @@ def debounce(wait):
     return decorator
     
 def set_race_time():
-    global original_start_time, countdown_time, start_time_label
+    global original_start_time, countdown_time, start_time_label, dialog, custom_message_box
     dialog = TouchTimeDialog(root)
     root.wait_window(dialog)  # Wait for the dialog to close
+    if dialog is not None:  # Check if dialog is not None to avoid AttributeError
+        time_input = dialog.result  # Temporarily store the result
+    else:
+        time_input = None  # Ensure time_input has a defined value even if dialog is None
     
-    time_input = dialog.result  # Get the result from the dialog
+    dialog = None  # Clear the dialog variable after closing
+    
     if time_input:
         try:
             parsed_time = parse_time_input(time_input)
@@ -216,10 +345,14 @@ def set_race_time():
                 original_start_time = parsed_time
                 ntp_now = get_ntp_time()
                 if ntp_now is None:
-                    messagebox.showerror("Error", "Could not synchronize with NTP time.")
+                    if custom_message_box is not None:
+                        custom_message_box.close()
+                    custom_message_box = CustomMessageBox(root, "Could not synchronize with NTP time.")
                     return
                 if original_start_time <= ntp_now:
-                    messagebox.showinfo("Info", "The specified time is in the past. Please enter a future time.")
+                    if custom_message_box is not None:
+                        custom_message_box.close()
+                    custom_message_box = CustomMessageBox(root, "The specified time is in the past. Please enter a future time.")
                     return
                 
                 duration = (original_start_time - ntp_now).total_seconds()
@@ -228,7 +361,10 @@ def set_race_time():
                 start_time_label.config(text=f"Start Time: {original_start_time.strftime('%H:%M:%S')}")
                 #messagebox.showinfo("Success", "Race start time set successfully.")
         except ValueError as e:
-            messagebox.showerror("Error", str(e))
+            if custom_message_box is not None:
+                custom_message_box.close()
+            custom_message_box = CustomMessageBox(root, str(e))
+
             
 def start_countdown():
     global countdown_stop_event, countdown_thread, countdown_time
@@ -261,7 +397,7 @@ def update_countdown():
         countdown_label.config(text="00:00")
         
 def adjust_race_time(minutes):
-    global original_start_time, countdown_time, start_time_label, last_button_press_time
+    global original_start_time, countdown_time, start_time_label, last_button_press_time, custom_message_box
     
     # Use is_debounced directly to check if the function call should proceed
     if not is_debounced(0.3):  # Adjust the debounce interval as needed
@@ -270,12 +406,16 @@ def adjust_race_time(minutes):
         return
 
     if original_start_time is None:
-        messagebox.showinfo("Info", "Please set the race start time first.")
+        if custom_message_box is not None:
+            custom_message_box.close()
+        custom_message_box = CustomMessageBox(root, "Please set the race start time first.")
         return
 
     ntp_now = get_ntp_time()
     if ntp_now is None:
-        messagebox.showerror("Error", "Could not synchronize with NTP time.")
+        if custom_message_box is not None:
+            custom_message_box.close()
+        custom_message_box = CustomMessageBox(root, "Could not synchronize with NTP time.")
         return
 
     # Calculate the new adjusted time
@@ -295,11 +435,14 @@ def adjust_race_time(minutes):
     start_time_label.config(text=f"Start Time: {original_start_time.strftime('%H:%M:%S')}")
         
 def parse_time_input(time_input):
+    global custom_message_box
     try:
         ntp_now = get_ntp_time()
         if ntp_now is None:
             # Optionally, inform the user that the system will use the local time instead of NTP time
-            messagebox.showinfo("Info", "Using system's local time due to NTP time fetch failure.")
+            if custom_message_box is not None:
+                custom_message_box.close()
+            custom_message_box = CustomMessageBox(root, "Using system's local time due to NTP time fetch failure.")
             ntp_now = datetime.now()  # Use system's local time as a fallback
             
         time_pattern = re.compile(r"(\d{1,2}):(\d{2})\s*(AM|PM|am|pm)?")
@@ -322,13 +465,16 @@ def parse_time_input(time_input):
             
         return adjusted_time
     except ValueError as e:
-        messagebox.showerror("Error", str(e))
+        if custom_message_box is not None:
+            custom_message_box.close()
+        custom_message_box = CustomMessageBox(root, str(e))
         return None
 
 # GUI Setup
 root = tk.Tk()
 root.title("Countdown Clock")
 root.geometry("800x480")
+root.configure(bg='white')
 
 def set_fullscreen():
     root.attributes('-fullscreen', True)
